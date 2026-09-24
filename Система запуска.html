@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Система запуска продукта — Александра Дреева</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --paper:#EEF0EA; --surface:#FFFFFF; --field:#F6F7F3; --ink:#172031; --muted:#5E6675; --line:#D8DBD1;
+  --accent:#3346D3; --accent-ink:#FFFFFF; --accent-soft:#E4E8FF;
+  --red:#C8413B; --red-soft:#FBE7E5; --amber:#B97812; --amber-soft:#FCEFD8; --green:#23845A; --green-soft:#DDF2E6;
+  --b1:#3346D3; --b2:#C8413B; --b3:#23845A; --b4:#B97812;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#11151D; --surface:#181E29; --field:#1F2633; --ink:#E7EAF0; --muted:#9AA2B2; --line:#2B3342;
+    --accent:#8391FF; --accent-ink:#0F1320; --accent-soft:#252C55;
+    --red:#F07A72; --red-soft:#3A1E1E; --amber:#E7B14E; --amber-soft:#3A2D14; --green:#5CCB95; --green-soft:#17342A;
+    --b1:#8391FF; --b2:#F07A72; --b3:#5CCB95; --b4:#E7B14E;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#11151D; --surface:#181E29; --field:#1F2633; --ink:#E7EAF0; --muted:#9AA2B2; --line:#2B3342;
+  --accent:#8391FF; --accent-ink:#0F1320; --accent-soft:#252C55;
+  --red:#F07A72; --red-soft:#3A1E1E; --amber:#E7B14E; --amber-soft:#3A2D14; --green:#5CCB95; --green-soft:#17342A;
+  --b1:#8391FF; --b2:#F07A72; --b3:#5CCB95; --b4:#E7B14E;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 70px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "Onest",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:"Unbounded","Onest",system-ui,sans-serif;font-weight:700;line-height:1.2;margin:0}
+h1{font-size:clamp(22px,3.2vw,30px);letter-spacing:-.01em}
+h2{font-size:18px;margin-bottom:6px}
+h3{font-size:15px;font-weight:500}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:20;background:var(--paper);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px);margin-top:calc(-1 * env(safe-area-inset-top,0px))}
+.top-in{display:flex;align-items:center;gap:14px;padding:12px 20px;max-width:1400px;margin:0 auto}
+.brand{display:flex;flex-direction:column;min-width:0}
+.brand b{font-family:"Unbounded",sans-serif;font-size:15px;font-weight:700;white-space:nowrap}
+.brand span{font-size:12px;color:var(--muted)}
+.proj{flex:1;min-width:0;max-width:340px}
+.proj input{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;color:var(--ink)}
+.top-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.saved{font-size:12px;color:var(--muted);white-space:nowrap;transition:color .3s}
+.saved.on{color:var(--green)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 12px;font-size:14px;white-space:nowrap}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--red)}
+.btn.sm{padding:5px 10px;font-size:13px}
+
+/* shell */
+.shell{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1400px;margin:0 auto}
+nav.rail{position:sticky;top:calc(env(safe-area-inset-top,0px) + 62px);align-self:start;padding:22px 12px 22px 20px;max-height:calc(100vh - 62px);overflow:auto}
+.phase{font-size:12px;color:var(--muted);margin:16px 10px 6px}
+.phase:first-child{margin-top:0}
+.nav-i{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;border-radius:10px;padding:9px 10px;font-size:14px}
+.nav-i:hover{background:var(--surface)}
+.nav-i.on{background:var(--ink);color:var(--paper)}
+.nav-i .n{font-family:"Unbounded",sans-serif;font-size:12px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
+.nav-i .t{flex:1;min-width:0}
+.nav-i .p{font-size:12px;opacity:.7;font-variant-numeric:tabular-nums}
+main{padding:24px 24px 80px;min-width:0}
+.view-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.view-head p{max-width:62ch;margin-top:8px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.panel-head p{max-width:64ch}
+.stripe{border-left:4px solid var(--c,var(--accent))}
+
+/* fields */
+input[type=text],input[type=number],input[type=date],textarea,select{width:100%;background:var(--field);border:1px solid transparent;border-radius:8px;padding:8px 10px;font:inherit;color:var(--ink);min-width:0}
+input:hover,textarea:hover,select:hover{border-color:var(--line)}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);background:var(--surface)}
+textarea{resize:none;min-height:40px;overflow:hidden;line-height:1.45}
+input[type=number]{font-variant-numeric:tabular-nums}
+::placeholder{color:var(--muted);opacity:.7}
+label.f{display:block;margin-bottom:12px}
+label.f>span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 16px}
+
+/* tables */
+.wrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
+table.t{border-collapse:separate;border-spacing:0;width:100%}
+.t th{font-weight:600;font-size:13px;color:var(--muted);text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:bottom;white-space:nowrap}
+.t td{padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+.t td.lbl{font-size:14px;padding:12px 10px 8px 4px;min-width:200px;max-width:280px}
+.t tr.grp td{font-family:"Unbounded",sans-serif;font-size:13px;font-weight:500;padding:18px 4px 8px;border-bottom:1px solid var(--ink)}
+.t td.calc{font-variant-numeric:tabular-nums;font-weight:600;padding:12px 8px;white-space:nowrap}
+.t .num{width:84px}
+.t .w120{min-width:120px}.t .w160{min-width:160px}.t .w200{min-width:200px}.t .w240{min-width:240px}
+.t tr.best td{background:var(--accent-soft)}
+.t tr.worst td{background:var(--red-soft)}
+.t td.x{width:36px}
+.iconbtn{border:0;background:transparent;color:var(--muted);border-radius:6px;padding:6px;line-height:1}
+.iconbtn:hover{color:var(--red);background:var(--red-soft)}
+
+/* chips & tags */
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip.add{border-style:dashed}
+.hint{display:inline-flex;gap:6px;align-items:baseline;border:1px dashed var(--accent);color:var(--accent);background:transparent;border-radius:8px;padding:5px 9px;font-size:13px;text-align:left;margin:2px 6px 6px 0;max-width:100%}
+.hint i{font-style:normal;opacity:.7;white-space:nowrap}
+.tag{display:inline-block;font-size:12px;border-radius:6px;padding:2px 8px;white-space:nowrap;font-weight:500}
+.tag.c{background:var(--red-soft);color:var(--red)}
+.tag.i{background:var(--amber-soft);color:var(--amber)}
+.tag.n{background:var(--green-soft);color:var(--green)}
+.tag.auto{background:var(--accent-soft);color:var(--accent)}
+
+/* overview */
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;margin-bottom:16px}
+.cols{display:flex;align-items:flex-end;gap:10px;height:210px;padding:12px 0 0}
+.col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;border:0;background:transparent;padding:0}
+.col .shaft{flex:1;width:100%;border-radius:8px 8px 3px 3px;background:var(--field);position:relative;overflow:hidden;border:1px solid var(--line)}
+.col .fill{position:absolute;left:0;right:0;bottom:0;background:var(--ink);transition:height .6s cubic-bezier(.2,.8,.2,1)}
+.col .pct{position:absolute;left:0;right:0;top:8px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;font-weight:600;mix-blend-mode:difference;color:#fff}
+.col .cap{font-size:11px;overflow-wrap:anywhere;text-align:center;line-height:1.2;min-height:30px;color:var(--muted)}
+.col:hover .shaft{border-color:var(--ink)}
+.plinth{height:10px;background:var(--ink);border-radius:3px;margin-top:6px}
+.plinth-l{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
+.kv{display:grid;gap:14px}
+.kv div>span{display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
+.kv div>p{font-size:15px}
+.kv .big{font-family:"Unbounded",sans-serif;font-size:17px;line-height:1.35;font-weight:500}
+.empty{color:var(--muted);font-style:italic}
+.verdict{border-radius:12px;padding:14px 16px;font-weight:500}
+.verdict.go{background:var(--green-soft);color:var(--green)}
+.verdict.stop{background:var(--red-soft);color:var(--red)}
+.verdict ul{margin:8px 0 0;padding-left:18px;font-weight:400}
+.next{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+
+/* interview */
+.q{display:grid;grid-template-columns:32px minmax(0,1fr);gap:4px 12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.q:last-child{border-bottom:0}
+.q .qn{font-family:"Unbounded",sans-serif;font-size:13px;color:var(--c);padding-top:2px}
+.q .qt{font-weight:500}
+.q .qh{font-size:13px;color:var(--muted);margin:2px 0 8px}
+.q .qa{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px}
+.blockhead{display:flex;align-items:baseline;gap:10px;margin-top:6px}
+.blockhead .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none;transform:translateY(-1px)}
+
+/* launch */
+.li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.li:last-child{border-bottom:0}
+.cb{width:24px;height:24px;border-radius:7px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;padding:0;margin-top:1px}
+.cb.on{background:var(--green);border-color:var(--green);color:#fff}
+.cb svg{width:14px;height:14px}
+.li.done .lt{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
+.li .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0 6px;font-size:13px;color:var(--muted)}
+.li .late{color:var(--red);font-weight:600}
+.progress{height:8px;background:var(--field);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.progress i{display:block;height:100%;background:var(--green);transition:width .4s}
+
+/* plot & funnel */
+.plotwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+svg.plot{width:100%;max-width:440px;height:auto;display:block}
+.fn{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(0,2fr) 70px;gap:10px;align-items:center;padding:6px 0;font-size:14px}
+.fn .bar{height:22px;background:var(--field);border-radius:5px;overflow:hidden}
+.fn .bar i{display:block;height:100%;background:var(--accent);border-radius:5px;min-width:2px}
+.fn.drop .bar i{background:var(--red)}
+.fn .v{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.callout{background:var(--red-soft);color:var(--red);border-radius:10px;padding:10px 14px;font-size:14px;margin-top:10px}
+.callout.ok{background:var(--accent-soft);color:var(--accent)}
+
+.foot{font-size:12px;color:var(--muted);margin-top:24px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);opacity:0;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-size:14px;transition:.25s;pointer-events:none;z-index:50}
+.toast.on{opacity:1;transform:translateX(-50%)}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  nav.rail{position:sticky;top:calc(env(safe-area-inset-top,0px) + 58px);z-index:15;display:flex;gap:6px;overflow-x:auto;padding:8px 12px;background:var(--paper);border-bottom:1px solid var(--line);max-height:none;scrollbar-width:none}
+  nav.rail::-webkit-scrollbar{display:none}
+  .phase{display:none}
+  .nav-i{width:auto;white-space:nowrap;padding:7px 10px;flex:none}
+  .nav-i .p{display:none}
+  main{padding:18px 14px 70px}
+  .hero,.plotwrap{grid-template-columns:1fr}
+  .proj{display:none}
+  .top-in{padding:10px 14px}
+  .brand span{display:none}
+  .q .qa{grid-template-columns:1fr}
+  .panel{padding:16px;border-radius:12px}
+  .cols{height:170px;gap:6px}
+}
+@media (max-width:520px){
+  .top-actions .btn.hide-s{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <div class="brand"><b>Система запуска</b><span>Александра Дреева</span></div>
+  <div class="proj"><input type="text" data-p="project" placeholder="Название твоего продукта" aria-label="Название продукта"></div>
+  <div class="top-actions">
+    <span class="saved" id="saved">Сохранено</span>
+    <button class="btn hide-s" id="btnXlsx">Скачать Excel</button>
+    <button class="btn ghost" id="btnMenu" aria-label="Резервная копия">•••</button>
+  </div>
+</div></header>
+<div class="shell">
+  <nav class="rail" id="nav"></nav>
+  <main id="main"></main>
+</div>
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ DATA DEFINITIONS ============ */
+const IV_BLOCKS=[
+ {t:'Контекст',time:'2–3 минуты',c:'var(--b1)',q:[
+  ['Расскажи коротко о своём бизнесе — чем занимаешься, как давно?','Понять стадию и нишу'],
+  ['Как выглядит твой типичный рабочий день прямо сейчас?','Понять операционную загрузку'],
+  ['Какие задачи занимают больше всего твоего времени?','Найти, где «застревает» время']]},
+ {t:'Боль',time:'5–7 минут',c:'var(--b2)',q:[
+  ['Что сейчас главная проблема в твоём бизнесе? Расскажи подробнее.','Главная боль → в крючок Reels'],
+  ['Как давно эта проблема существует?','Глубина боли → в контент'],
+  ['Это мешает тебе лично или это проблема бизнеса в целом?','Личная vs деловая боль'],
+  ['Что ты уже пробовал, чтобы решить это?','Предыдущий опыт → в возражения'],
+  ['Почему это не сработало или сработало не так, как хотелось?','Провал предыдущих решений → в оффер'],
+  ['Что происходит, если эта проблема останется нерешённой через год?','Цена бездействия → в продающие посты']]},
+ {t:'Желаемый результат',time:'3–5 минут',c:'var(--b3)',q:[
+  ['Как выглядит идеальная ситуация в твоём бизнесе через 3 месяца?','Желаемый результат → в оффер'],
+  ['Что конкретно изменится, если проблема решится?','Ценность результата → в заголовок'],
+  ['Как ты поймёшь, что результат достигнут — что конкретно увидишь или почувствуешь?','Критерий успеха → в кейсы']]},
+ {t:'Покупательское поведение',time:'3–5 минут',c:'var(--b4)',q:[
+  ['Когда ты последний раз покупал обучающий продукт или инструмент для бизнеса? Что это было?','Паттерн покупок'],
+  ['Почему купил именно это — что привлекло?','Триггер покупки → в оффер'],
+  ['Что тебя останавливает, когда думаешь о покупке нового продукта?','Главное возражение → в продажи']]}
+];
+const IV_SUM=[['pain','Главная боль одной фразой (словами клиента)'],['tried','Что уже пробовал и почему не помогло'],['result','Желаемый результат (его слова)'],['objection','Главное возражение перед покупкой'],['quote','Самая сильная цитата, которую можно использовать']];
+const IV_PAT=[['pain','Боль, которая встречается чаще всего'],['words','Слова, которые повторяются (цитаты)'],['tried','Что все пробовали и почему не помогло'],['result','Результат, который хотят все'],['objection','Возражение, которое встречается у всех']];
+
+const SEG_KEYS=['A','B','C'], SEG_L={A:'А',B:'Б',C:'В'};
+const SEG_GROUPS=[
+ ['Кто это',[['name','Название сегмента (как ты его называешь)'],['who','Кто это — краткое описание'],['age','Возраст / пол'],['sphere','Сфера бизнеса'],['stage','Стадия бизнеса (старт / рост / масштаб)'],['income','Средний доход / оборот']]],
+ ['Что болит',[['pain','Главная боль прямо сейчас'],['night','Что не даёт спать ночью'],['tried','Что уже пробовал'],['whyfail','Почему предыдущие решения не сработали']]],
+ ['Что хочет',[['want','Желаемый результат через 3 месяца'],['words','Как формулирует результат своими словами'],['ideal','Идеальная картина будущего']]],
+ ['Где живёт',[['online','Где проводит время онлайн'],['reads','Что читает / смотрит'],['follows','На кого подписан']]],
+ ['Покупательское поведение',[['pay','Готовность платить за продукт (₽)'],['objection','Главное возражение перед покупкой'],['decide','Что помогает принять решение']]],
+ ['Приоритет',[['prio','Приоритет (1 = главный)'],['why','Почему этот сегмент важнее']]]
+];
+const PORTRAIT=[['name','Имя (придумай для удобства)'],['who','Кто он / она — кратко'],['now','Что происходит в бизнесе прямо сейчас'],['annoys','Что его бесит больше всего'],['night','О чём думает в 2 ночи'],['tried','Что уже пробовал — почему не помогло'],['want','Что хочет получить через 3 месяца'],['ideal','Как выглядит его идеальный результат'],['tell','Что он скажет другу, если продукт сработает'],['objection','Его главное возражение перед покупкой'],['word','Одно слово, которым он описывает свою боль'],['fan','Что сделает его фанатом твоего бренда']];
+const CMAP=[['res','Какой контент резонирует'],['reels','Темы для Reels'],['offer','Слова в оффере'],['lead','Лид-магнит']];
+
+const CJM_DEF=[
+ ['Осознание боли','Понимает, что есть проблема','Что-то не так в бизнесе','Тревога, усталость','Контент про боль в Reels'],
+ ['Поиск решения','Гуглит, спрашивает, смотрит соцсети','Где найти решение?','Надежда, скептицизм','SEO, хэштеги, репосты'],
+ ['Первое касание','Видит твой Reels впервые','Интересно, это про меня','Любопытство, узнавание','Reels, крючок в первые 3 сек'],
+ ['Изучение','Читает профиль, смотрит посты','Кто этот человек? Можно доверять?','Интерес, сомнение','Шапка профиля, закреп, посты'],
+ ['Сравнение','Смотрит конкурентов','Чем лучше других?','Нерешительность','Позиционирование, отзывы'],
+ ['Решение купить','Нажимает на ссылку оплаты','Стоит ли 990 рублей?','Лёгкое волнение','Оффер, дедлайн, кнопка'],
+ ['Покупка','Оплачивает','Правильно ли сделал?','Облегчение или тревога','Страница после оплаты'],
+ ['Первый опыт','Получает доступ, начинает изучать','Понятно ли это? С чего начать?','Предвкушение или растерянность','Видео 1, приветствие'],
+ ['Применение','Заполняет таблицы, внедряет','Работает ли это для меня?','Вовлечённость или разочарование','Видео 2, поддержка в чате'],
+ ['Результат','Получает инсайт или результат','Это реально работает!','Радость, благодарность','Запрос отзыва'],
+ ['Рекомендация','Рассказывает другим или молчит','Стоит ли советовать?','Гордость или нейтральность','Следующий продукт, реф. программа']
+];
+const CJM_COLS=[['name','Этап','w160'],['does','Что делает клиент','w200'],['thinks','Что думает','w200'],['feels','Что чувствует','w160'],['touch','Твои точки касания','w200']];
+const LOSSES=['Приходят в профиль, но не подписываются','Подписываются, но не читают посты','Читают посты, но не пишут кодовое слово','Пишут кодовое слово, но не открывают лид-магнит','Открывают лид-магнит, но не отвечают боту','Отвечают боту, но не переходят на оплату','Переходят на оплату, но не покупают','Покупают, но не проходят продукт до конца','Проходят, но не оставляют отзыв','Не покупают следующий продукт'];
+const WORD_STAGES=['Описывает боль','Ищет решение','Сомневается перед покупкой','После покупки (первые впечатления)','После результата (отзыв)'];
+
+const MX_PARAMS=[['Доступность цены для ЦА','Доступность цены'],['Скорость получения результата','Скорость'],['Глубина и детализация инструментов','Глубина'],['Простота внедрения без эксперта','Простота'],['Качество поддержки после покупки','Поддержка'],['Адаптируемость под разные ниши','Адаптивность'],['Сила личного бренда эксперта','Личный бренд'],['Качество упаковки и презентации','Упаковка'],['Наличие готовых шаблонов','Шаблоны'],['Доказанные кейсы и результаты','Кейсы']];
+const MX_CONCL=[['hot','Где скопились конкуренты (перегретая зона)?'],['free','Где на карте пусто — свободное место?'],['unique','Ты занимаешь уникальное место? (да / нет)'],['shift','Если нет — что сдвинуть в позиционировании?'],['adv','Твоё конкурентное преимущество одной фразой'],['focus','Какие параметры ставишь во главу угла в маркетинге?']];
+
+const GAP_CHARS=['Цена продукта','Скорость получения результата','Формат подачи (курс / инструменты / живой)','Глубина и детализация','Поддержка после покупки','Адаптация под конкретную нишу','Простота внедрения','Доступность без больших знаний','Гарантии результата','Комьюнити и нетворкинг'];
+const GAP_Q=['Что расстраивает клиентов у всех конкурентов?','Какой сегмент аудитории все игнорируют?','Где у всех слабая упаковка или плохой продукт?','Что клиенты просят, но никто не даёт?','Где высокая цена при слабом наполнении?','Твой главный GAP одной фразой'];
+const FORMULA=[['who','Кому помогаю','конкретный портрет, не «всем предпринимателям»'],['result','Какой результат даю','словами клиента'],['how','С помощью чего','твой уникальный метод или инструмент'],['obj','Даже если…','главное возражение, которое снимаешь'],['time','За какое время','конкретный срок']];
+const GAP_CHECKS=['Кто-то из конкурентов говорит точно то же самое?','Клиент узнаёт себя в первом предложении?','Понятно, что конкретно получит (не «рост», а цифра или действие)?','Понятно, за сколько времени?','Есть конкретное отличие — не «качество и сервис»?','Ты сам(а) веришь в это позиционирование?'];
+const GAP_CHECK_GOOD=['no','yes','yes','yes','yes','yes'];
+
+const LAUNCH=[
+ ['Исследование','без этого запуск — риск',[
+  ['r1','Проведено минимум 5 интервью с потенциальными клиентами','c','До старта прогрева'],
+  ['r2','Проанализировано минимум 5 прямых конкурентов','c','До старта прогрева'],
+  ['r3','GAP-анализ выполнен — найдена дыра рынка','c','До старта прогрева'],
+  ['r4','Позиционирование сформулировано одной фразой','c','До старта прогрева'],
+  ['r5','Определён приоритетный сегмент аудитории','i','До старта прогрева'],
+  ['r6','CJM построен — путь клиента понятен','i','До старта прогрева']]],
+ ['Продукт','',[
+  ['p1','Название отражает результат, а не процесс','c','До старта прогрева'],
+  ['p2','Оффер сформулирован словами клиента (не твоими)','c','До старта прогрева'],
+  ['p3','Понятно, что конкретно входит в продукт (список)','c','До старта прогрева'],
+  ['p4','Понятно, за какое время клиент получит результат','c','До старта прогрева'],
+  ['p5','Цена обоснована: сравнение с конкурентами сделано','i','До старта прогрева'],
+  ['p6','Все файлы загружены в закрытый Telegram-канал','c','День открытия'],
+  ['p7','Видео 1 и Видео 2 записаны и загружены','c','День открытия'],
+  ['p8','Проверено, что все ссылки и файлы открываются с телефона','i','День -1']]],
+ ['Упаковка и оплата','',[
+  ['u1','Лид-магнит создан (PDF готов)','c','День -7'],
+  ['u2','Аккаунт Robokassa / ЮKassa создан и проверен','c','День -5'],
+  ['u3','Тестовая оплата проведена успешно','c','День -3'],
+  ['u4','Страница после оплаты настроена (что делать дальше)','c','День -3'],
+  ['u5','Приветственное сообщение написано и отправляется автоматически','i','День -2'],
+  ['u6','Есть хотя бы 3 отзыва от бета-тестеров','i','День открытия'],
+  ['u7','Шапка профиля Instagram обновлена — ссылка ведёт на бота','i','День -1']]],
+ ['Воронка и автоматизация','',[
+  ['v1','ManyChat подключён к Instagram','c','День -5'],
+  ['v2','Кодовое слово настроено и протестировано','c','День -3'],
+  ['v3','Автоответ на комментарий работает','c','День -3'],
+  ['v4','Цепочка сообщений бота настроена (все 7 шагов)','c','День -2'],
+  ['v5','Дожимные сообщения (24 ч, 48 ч, 72 ч) настроены','i','День -2'],
+  ['v6','Тест воронки пройден с чужого аккаунта','c','День -1'],
+  ['v7','Уведомления о каждой оплате настроены','i','День -1']]],
+ ['Прогрев','14 дней до открытия',[
+  ['w1','Контент-план прогрева на 14 дней написан','c','День -14'],
+  ['w2','Первые 3 поста прогрева опубликованы','c','День -12'],
+  ['w3','Минимум 1 Reels с кодовым словом опубликован','c','День -10'],
+  ['w4','Минимум 5 человек написали кодовое слово','i','День -7'],
+  ['w5','Опрос в сторис проведён — боли аудитории выявлены','n','День -7'],
+  ['w6','Анонс-пост опубликован за 2 дня до открытия','c','День -2'],
+  ['w7','Дата и время открытия продаж зафиксированы и анонсированы','c','День -1'],
+  ['w8','Дедлайн специальной цены определён и анонсирован','c','День -1']]],
+ ['День открытия','',[
+  ['d1','Пост-открытие опубликован в 9:00–10:00','c','День 0'],
+  ['d2','Сторис-серия из 4 частей опубликована','c','День 0'],
+  ['d3','Все вопросы в директ обработаны в течение 2 часов','c','День 0'],
+  ['d4','Первые покупатели получили доступ и подтверждение','c','День 0'],
+  ['d5','Дожимная сторис с дедлайном опубликована в 19:00–20:00','i','День 0'],
+  ['d6','Итоги первого дня зафиксированы в метриках','n','День 0']]]
+];
+const AFTER=[
+ ['a1','Отправить персональное сообщение каждому покупателю (первые 24 ч)','День 1'],
+ ['a2','Проверить, что все покупатели получили доступ в канал','День 1'],
+ ['a3','Зафиксировать количество продаж и выручку в метриках','День 1'],
+ ['a4','Написать в канал пост «Вы внутри — с чего начать»','День 1'],
+ ['a5','Запустить дожим для тех, кто не купил (сообщение в боте)','День 2'],
+ ['a6','Обработать все вопросы и возражения из директ','День 2-3'],
+ ['a7','Собрать первые реакции — написать покупателям «как первые впечатления?»','День 3'],
+ ['a8','Написать первое письмо покупателям с подсказкой «начни отсюда»','День 3'],
+ ['a9','Опубликовать первый отзыв в открытом аккаунте','День 3-4'],
+ ['a10','Проанализировать конверсию воронки — где потери?','День 5'],
+ ['a11','Запросить развёрнутый отзыв у первых покупателей','День 7'],
+ ['a12','Анонсировать продукт №2 в закрытом канале','День 7'],
+ ['a13','Зафиксировать все инсайты для следующего запуска','День 7']
+];
+const IMP={c:['c','Критично'],i:['i','Важно'],n:['n','Желательно']};
+
+// kind: last = последнее значение, sum = сумма за месяц, avg = среднее, max = максимум, calc = считается
+const METRICS=[
+ ['Аудитория',[['igSubs','Подписчики Instagram','last'],['igGrow','Прирост за неделю (Instagram)','sum'],['tgSubs','Подписчики Telegram','last'],['tgGrow','Прирост за неделю (Telegram)','sum'],['igReach','Охват за неделю (Instagram)','sum']]],
+ ['Контент',[['reels','Reels опубликовано','sum'],['reelsAvg','Средний охват Reels','avg'],['reelsBest','Лучший Reels (охват)','max'],['saves','Сохранений постов','sum'],['comments','Комментариев','sum']]],
+ ['Воронка',[['code','Кодовое слово сработало (раз)','sum'],['lead','Лид-магнит отправлен (раз)','sum'],['bot','Ответили боту','sum'],['pay','Перешли по ссылке на оплату','sum'],['paid','Оплатили','sum']]],
+ ['Деньги',[['rev','Выручка за неделю (₽)','sum'],['revCum','Выручка накопительно (₽)','calc'],['conv','Конверсия лид → покупка, %','calc'],['check','Средний чек (₽)','calc']]]
+];
+const FUNNEL=['Увидели Reels (охват)','Написали кодовое слово','Открыли лид-магнит','Ответили на вопрос бота','Нажали «Узнать подробнее»','Перешли на страницу оплаты','Оплатили продукт','Прошли продукт до конца','Оставили отзыв','Купили следующий продукт'];
+const CONTENT_TYPES=['Reels','Пост','Карусель','Сторис','Эфир'];
+
+const VIEWS=[
+ {id:'home',t:'Обзор',ph:null},
+ {id:'interview',t:'Интервью',ph:'Исследование',n:1},
+ {id:'segments',t:'Сегменты',ph:'Исследование',n:2},
+ {id:'cjm',t:'Путь клиента',ph:'Исследование',n:3},
+ {id:'matrix',t:'Конкуренты',ph:'Позиционирование',n:4},
+ {id:'gap',t:'GAP и оффер',ph:'Позиционирование',n:5},
+ {id:'launch',t:'Запуск',ph:'Запуск и рост',n:6},
+ {id:'metrics',t:'Метрики',ph:'Запуск и рост',n:7}
+];
+
+/* ============ STATE ============ */
+const KEY='dreeva-launch-system-v1';
+function blank(){return{project:'',interviews:[],ivPat:{},seg:{A:{},B:{},C:{}},portrait:{},cmap:{A:{},B:{},C:{}},
+ cjm:{st:{},loss:{},words:{},extra:[]},mx:{names:{},s:{},ax:'0',ay:'1',pc:{},concl:{}},
+ gap:{m:{},q:{},f:{},offer:'',ck:{}},launch:{date:'',it:{},c:{}},after:{it:{},c:{}},
+ met:{w:{},goal:{},content:[],fn:{}}};}
+function merge(a,b){for(const k in b){if(b[k]&&typeof b[k]==='object'&&!Array.isArray(b[k])){a[k]=merge(a[k]&&typeof a[k]==='object'?a[k]:{},b[k])}else a[k]=b[k]}return a}
+let S=blank();
+try{const raw=localStorage.getItem(KEY);if(raw)S=merge(blank(),JSON.parse(raw))}catch(e){}
+CJM_DEF.forEach((d,i)=>{if(!S.cjm.st[i])S.cjm.st[i]={};CJM_COLS.forEach(([k],j)=>{if(S.cjm.st[i][k]==null)S.cjm.st[i][k]=d[j]})});
+const UI={view:'home',iv:0};
+try{const v=localStorage.getItem(KEY+':view');if(v&&VIEWS.some(x=>x.id===v))UI.view=v}catch(e){}
+
+let saveT;
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(S));flashSaved()}catch(e){}},250)}
+function flashSaved(){const s=document.getElementById('saved');s.textContent='Сохранено';s.classList.add('on');setTimeout(()=>s.classList.remove('on'),900)}
+function get(p){return p.split('.').reduce((o,k)=>o==null?undefined:o[k],S)}
+function set(p,v){const ks=p.split('.');let o=S;for(let i=0;i<ks.length-1;i++){if(o[ks[i]]==null||typeof o[ks[i]]!=='object')o[ks[i]]={};o=o[ks[i]]}o[ks[ks.length-1]]=v;save()}
+
+/* ============ HELPERS ============ */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const filled=v=>v!=null&&String(v).trim()!=='';
+const num=v=>{if(!filled(v))return null;const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return isNaN(n)?null:n};
+const fmt=(n,d=0)=>n==null||!isFinite(n)?'—':n.toLocaleString('ru-RU',{maximumFractionDigits:d});
+const pct=(n,d=0)=>n==null||!isFinite(n)?'—':fmt(n,d)+'%';
+function inp(p,ph='',cls=''){return `<input type="text" data-p="${p}" value="${esc(get(p))}" placeholder="${esc(ph)}" class="${cls}">`}
+function nin(p,ph='',cls='num'){return `<input type="number" inputmode="decimal" data-p="${p}" value="${esc(get(p))}" placeholder="${esc(ph)}" class="${cls}">`}
+function ta(p,ph=''){return `<textarea rows="1" data-p="${p}" placeholder="${esc(ph)}">${esc(get(p))}</textarea>`}
+function sel(p,opts,ph='—'){const v=get(p)??'';return `<select data-p="${p}"><option value="">${esc(ph)}</option>${opts.map(([k,l])=>`<option value="${esc(k)}"${String(v)===String(k)?' selected':''}>${esc(l)}</option>`).join('')}</select>`}
+function field(label,html){return `<label class="f"><span>${label}</span>${html}</label>`}
+const calc=(name,arg='')=>`<span data-c="${name}" data-a="${esc(arg)}"></span>`;
+const calcDiv=(name,arg='')=>`<div data-c="${name}" data-a="${esc(arg)}"></div>`;
+const CHECK='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>';
+function toast(t){const el=document.getElementById('toast');el.textContent=t;el.classList.add('on');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('on'),2200)}
+
+/* ============ DERIVED DATA ============ */
+function segName(k){return filled(S.seg[k]?.name)?`${SEG_L[k]}: ${S.seg[k].name}`:`Сегмент ${SEG_L[k]}`}
+function prioritySeg(){return SEG_KEYS.find(k=>String(S.seg[k]?.prio)==='1')||null}
+function ivDone(iv){return filled(iv.s?.pain)||Object.values(iv.a||{}).filter(filled).length>=5}
+function ivCount(){return S.interviews.filter(ivDone).length}
+function compCount(){let n=0;for(let c=0;c<5;c++){if(filled(S.mx.names[c]))n++}return n}
+function colScore(c){const v=MX_PARAMS.map((_,i)=>num(S.mx.s[i]?.[c])).filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null}
+function participants(){const a=[];for(let c=0;c<5;c++)a.push({c,name:filled(S.mx.names[c])?S.mx.names[c]:`Конкурент ${c+1}`,you:false});a.push({c:5,name:'Ты',you:true});return a}
+function cjmConvCount(){return CJM_DEF.filter((_,i)=>num(S.cjm.st[i]?.conv)!=null).length}
+function offerText(){return filled(S.gap.offer)?S.gap.offer:''}
+function formulaText(){const f=S.gap.f;const ph=(k,d)=>filled(f[k])?f[k].trim():`[${d}]`;return `Я помогаю ${ph('who','кому')} достичь ${ph('result','результат')} с помощью ${ph('how','метод')}, даже если ${ph('obj','возражение')}, за ${ph('time','срок')}`}
+function autoDone(id){switch(id){
+ case 'r1':return ivCount()>=5;
+ case 'r2':return compCount()>=5&&[0,1,2,3,4].every(c=>colScore(c)!=null);
+ case 'r3':return filled(S.gap.q[5]);
+ case 'r4':return filled(S.gap.offer);
+ case 'r5':return !!prioritySeg();
+ case 'r6':return cjmConvCount()>=6;
+}return null}
+function isDone(id){const m=S.launch.it[id];if(m===true||m===false)return m;const a=autoDone(id);return a===true}
+function allLaunchItems(){return LAUNCH.flatMap(b=>b[2])}
+function dayOffset(s){if(/открытия/.test(s))return 0;if(/прогрева/.test(s))return -15;const m=s.match(/-?\d+/);return m?parseInt(m[0]):null}
+function dateFor(off){if(!filled(S.launch.date)||off==null)return null;const d=new Date(S.launch.date+'T12:00:00');d.setDate(d.getDate()+off);return d}
+const fmtD=d=>d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+function today0(){const d=new Date();d.setHours(0,0,0,0);return d}
+
+function weekVals(key){return [0,1,2,3].map(w=>num(S.met.w[key]?.[w]))}
+function calcWeek(key,w){
+ if(key==='revCum'){let s=0,any=false;for(let i=0;i<=w;i++){const v=num(S.met.w.rev?.[i]);if(v!=null){s+=v;any=true}}return any?s:null}
+ if(key==='conv'){const p=num(S.met.w.paid?.[w]),c=num(S.met.w.code?.[w]);return p!=null&&c?p/c*100:null}
+ if(key==='check'){const r=num(S.met.w.rev?.[w]),p=num(S.met.w.paid?.[w]);return r!=null&&p?r/p:null}
+ return null}
+function monthFact(key,kind){
+ if(kind==='calc'){
+  if(key==='revCum'){return calcWeek('revCum',3)??calcWeek('revCum',2)??calcWeek('revCum',1)??calcWeek('revCum',0)}
+  if(key==='conv'){const p=sumW('paid'),c=sumW('code');return p!=null&&c?p/c*100:null}
+  if(key==='check'){const r=sumW('rev'),p=sumW('paid');return r!=null&&p?r/p:null}}
+ const v=weekVals(key).filter(x=>x!=null);if(!v.length)return null;
+ if(kind==='sum')return v.reduce((a,b)=>a+b,0);
+ if(kind==='avg')return v.reduce((a,b)=>a+b,0)/v.length;
+ if(kind==='max')return Math.max(...v);
+ return weekVals(key).reduce((a,b)=>b!=null?b:a,null)}
+function sumW(k){const v=weekVals(k).filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0):null}
+
+function funnelData(){const rows=FUNNEL.map((t,i)=>({t,i,n:num(S.met.fn[i]?.n),goal:num(S.met.fn[i]?.goal)}));
+ const top=rows[0].n;let worst=null;
+ rows.forEach((r,i)=>{r.fromTop=top&&r.n!=null?r.n/top*100:null;if(i>0){const prev=rows[i-1].n;r.conv=prev&&r.n!=null?r.n/prev*100:null;
+  }else r.conv=r.n!=null?100:null});
+ const withGoal=rows.filter(r=>r.i>0&&r.conv!=null&&r.goal);
+ if(withGoal.length){worst=withGoal.reduce((a,b)=>b.conv/b.goal<a.conv/a.goal?b:a);if(worst.conv>=worst.goal)worst=null}
+ else{rows.forEach(r=>{if(r.i>=2&&r.i<7&&r.conv!=null&&(worst==null||r.conv<worst.conv))worst=r})}
+ return{rows,worst}}
+
+/* progress per tool, 0..1 */
+function prog(id){
+ const ratio=(a,b)=>b?Math.min(1,a/b):0;
+ switch(id){
+ case 'interview':{const n=ivCount();const pat=IV_PAT.filter(([k])=>filled(S.ivPat[k])).length;return ratio(n,5)*.8+ratio(pat,5)*.2}
+ case 'segments':{const core=SEG_GROUPS.flatMap(g=>g[1]).map(x=>x[0]);let f=0;['A','B'].forEach(k=>core.forEach(c=>{if(filled(S.seg[k][c]))f++}));
+   const p=PORTRAIT.filter(([k])=>filled(S.portrait[k])).length;return ratio(f,core.length*2)*.6+ratio(p,PORTRAIT.length)*.4}
+ case 'cjm':{const l=LOSSES.filter((_,i)=>filled(S.cjm.loss[i]?.cause)).length;return ratio(cjmConvCount(),11)*.6+ratio(l,10)*.4}
+ case 'matrix':{let f=0;for(let i=0;i<10;i++)for(let c=0;c<6;c++)if(num(S.mx.s[i]?.[c])!=null)f++;const cc=MX_CONCL.filter(([k])=>filled(S.mx.concl[k])).length;return ratio(f,60)*.7+ratio(cc,6)*.3}
+ case 'gap':{let f=GAP_Q.filter((_,i)=>filled(S.gap.q[i])).length+FORMULA.filter(([k])=>filled(S.gap.f[k])).length+(filled(S.gap.offer)?3:0)+GAP_CHECKS.filter((_,i)=>filled(S.gap.ck[i]?.v)).length;
+   let m=0;GAP_CHARS.forEach((_,i)=>{if(filled(S.gap.m[i]?.you))m++});return ratio(f+m*.5,6+5+3+6+5)}
+ case 'launch':{const all=allLaunchItems();return ratio(all.filter(x=>isDone(x[0])).length,all.length)}
+ case 'metrics':{let w=0;for(let i=0;i<4;i++)if(num(S.met.w.rev?.[i])!=null||num(S.met.w.igSubs?.[i])!=null)w++;return ratio(w,4)}
+ }return 0}
+
+/* ============ CALCULATED FRAGMENTS ============ */
+const C={
+ navp(id){return Math.round(prog(id)*100)+'%'},
+ ivTitle(i){const iv=S.interviews[+i];return iv?esc(filled(iv.name)?iv.name:`Интервью ${+i+1}`):''},
+ ivTable(){if(!S.interviews.length)return `<p class="empty">Здесь соберётся сводка, как только появится первое интервью.</p>`;
+  return `<div class="wrap"><table class="t"><thead><tr><th>Клиент</th><th>Главная боль</th><th>Что пробовал</th><th>Желаемый результат</th><th>Возражение</th><th>Сегмент</th></tr></thead><tbody>${
+  S.interviews.map((iv,i)=>`<tr><td class="lbl" style="min-width:120px"><b>${esc(filled(iv.name)?iv.name:'Интервью '+(i+1))}</b><br><span class="small muted">${esc(iv.niche||'')}</span></td>${['pain','tried','result','objection'].map(k=>`<td class="lbl" style="min-width:180px">${filled(iv.s?.[k])?esc(iv.s[k]):'<span class="empty">—</span>'}</td>`).join('')}<td class="lbl" style="min-width:90px">${iv.s?.segment?esc(segName(iv.s.segment)):'—'}</td></tr>`).join('')}</tbody></table></div>`},
+ ivWords(){const stop=new Set('когда который которые потому чтобы сейчас просто очень всего своего своих этого этому такой такие может могут нужно хочется хочу больше меньше будет было были есть нету также какой какие сделать делать время'.split(' '));
+  const cnt={};S.interviews.forEach(iv=>{const txt=[...Object.values(iv.a||{}),...Object.values(iv.s||{})].join(' ').toLowerCase();
+   new Set((txt.match(/[а-яёa-z]{5,}/g)||[]).filter(w=>!stop.has(w))).forEach(w=>cnt[w]=(cnt[w]||0)+1)});
+  const top=Object.entries(cnt).filter(([,n])=>n>=2).sort((a,b)=>b[1]-a[1]).slice(0,14);
+  if(!top.length)return `<p class="small muted">Слова, повторяющиеся у 2+ клиентов, появятся здесь автоматически.</p>`;
+  return `<p class="small muted" style="margin-bottom:8px">Повторяются у нескольких клиентов:</p><div class="chips">${top.map(([w,n])=>`<span class="chip">${esc(w)} <b>×${n}</b></span>`).join('')}</div>`},
+ prioSeg(){const k=prioritySeg();return k?`Приоритетный — <b>${esc(segName(k))}</b>`:'Отметь приоритет 1 у одного сегмента'},
+ cjmWorst(){const v=CJM_DEF.map((d,i)=>({i,n:num(S.cjm.st[i]?.conv),name:S.cjm.st[i]?.name||d[0]})).filter(x=>x.n!=null);
+  if(v.length<2)return `<div class="callout ok">Впиши конверсию хотя бы на двух этапах — покажу, где клиенты отваливаются сильнее всего.</div>`;
+  const w=v.reduce((a,b)=>b.n<a.n?b:a);return `<div class="callout">Самое узкое место — этап ${w.i+1} «${esc(w.name)}»: ${pct(w.n)}. Начни улучшения отсюда.</div>`},
+ cjmRows(){document.querySelectorAll('tr[data-cjm]').forEach(tr=>tr.classList.remove('worst'));
+  const v=CJM_DEF.map((d,i)=>({i,n:num(S.cjm.st[i]?.conv)})).filter(x=>x.n!=null);if(v.length>=2){const w=v.reduce((a,b)=>b.n<a.n?b:a);const tr=document.querySelector(`tr[data-cjm="${w.i}"]`);if(tr)tr.classList.add('worst')}return ''},
+ lossTop(){const v=LOSSES.map((t,i)=>({t,i,p:num(S.cjm.loss[i]?.p),fix:S.cjm.loss[i]?.fix})).filter(x=>x.p!=null).sort((a,b)=>b.p-a.p).slice(0,3);
+  if(!v.length)return '';return `<div class="callout ok"><b>Чинить в первую очередь:</b> ${v.map(x=>`${esc(x.t)}${filled(x.fix)?' → '+esc(x.fix):''}`).join('; ')}</div>`},
+ ivQuotes(){const q=S.interviews.filter(iv=>filled(iv.s?.quote)).map(iv=>`<tr><td class="lbl">Из интервью</td><td class="lbl" colspan="2">«${esc(iv.s.quote)}»</td><td class="lbl muted">${esc(iv.name||'')}</td></tr>`);
+  return q.length?q.join(''):''},
+ mxTotal(c){const v=colScore(+c);return fmt(v,1)},
+ mxLead(){const you=colScore(5);if(you==null)return '<span class="muted small">Поставь себе оценки — посчитаю, где ты сильнее рынка.</span>';
+  const wins=[],loses=[];MX_PARAMS.forEach((p,i)=>{const y=num(S.mx.s[i]?.[5]);const cs=[0,1,2,3,4].map(c=>num(S.mx.s[i]?.[c])).filter(x=>x!=null);if(y==null||!cs.length)return;const mx=Math.max(...cs);if(y>mx)wins.push(p[1]);else if(y<mx-2)loses.push(p[1])});
+  return `${wins.length?`<div class="callout ok"><b>Ты сильнее всех:</b> ${wins.join(', ')}. Это кандидаты в главное отличие.</div>`:''}${loses.length?`<div class="callout"><b>Заметно отстаёшь:</b> ${loses.join(', ')}.</div>`:''}`},
+ plot(){const ax=+S.mx.ax||0,ay=+S.mx.ay||0;const P=participants();const W=320,pad=34,sc=v=>pad+(v-1)/9*(W-pad*2);
+  let dots='';P.forEach(p=>{const x=num(S.mx.s[ax]?.[p.c]),y=num(S.mx.s[ay]?.[p.c]);if(x==null||y==null)return;const cx=sc(x),cy=W-sc(y);
+   dots+=p.you?`<circle cx="${cx}" cy="${cy}" r="9" fill="var(--accent)"/><text x="${cx>W*.6?cx-13:cx+13}" text-anchor="${cx>W*.6?'end':'start'}" y="${cy+4}" font-size="12" font-weight="700" fill="var(--accent)">${esc(p.name)}</text>`
+   :`<circle cx="${cx}" cy="${cy}" r="6" fill="var(--ink)" opacity=".75"/><text x="${cx>W*.6?cx-10:cx+10}" text-anchor="${cx>W*.6?'end':'start'}" y="${cy+4}" font-size="11" fill="var(--muted)">${esc(p.name.slice(0,16))}</text>`});
+  const m=sc(5.5);
+  return `<svg class="plot" viewBox="0 0 ${W} ${W}" role="img" aria-label="Карта позиционирования">
+   <rect x="${pad}" y="${pad}" width="${W-pad*2}" height="${W-pad*2}" fill="var(--field)" rx="8"/>
+   <line x1="${m}" y1="${pad}" x2="${m}" y2="${W-pad}" stroke="var(--line)" stroke-width="1.5"/><line x1="${pad}" y1="${W-m}" x2="${W-pad}" y2="${W-m}" stroke="var(--line)" stroke-width="1.5"/>
+   <text x="${W/2}" y="${W-10}" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(MX_PARAMS[ax][1])} →</text>
+   <text x="12" y="${W/2}" text-anchor="middle" font-size="11" fill="var(--muted)" transform="rotate(-90 12 ${W/2})">${esc(MX_PARAMS[ay][1])} →</text>
+   ${dots}</svg>`},
+ quad(c){const ax=+S.mx.ax||0,ay=+S.mx.ay||0;const x=num(S.mx.s[ax]?.[+c]),y=num(S.mx.s[ay]?.[+c]);if(x==null||y==null)return '—';
+  return `${x>=5.5?'Высок.':'Низк.'} ${MX_PARAMS[ax][1].toLowerCase()} / ${y>=5.5?'высок.':'низк.'} ${MX_PARAMS[ay][1].toLowerCase()}`},
+ mapNote(){const ax=+S.mx.ax||0,ay=+S.mx.ay||0;const q={};let youQ=null;participants().forEach(p=>{const x=num(S.mx.s[ax]?.[p.c]),y=num(S.mx.s[ay]?.[p.c]);if(x==null||y==null)return;const k=(x>=5.5?1:0)+(y>=5.5?2:0);if(p.you)youQ=k;else q[k]=(q[k]||0)+1});
+  if(youQ==null)return '';const others=q[youQ]||0;return others?`<div class="callout">В твоём квадранте ещё ${others} конкурент(а). Место не уникально — подумай, какую ось сдвинуть.</div>`:`<div class="callout ok">Ты один в своём квадранте — это свободное место на рынке.</div>`},
+ formula(){return esc(formulaText())},
+ ckFlag(i){const v=S.gap.ck[+i]?.v;if(!v)return '';return v===GAP_CHECK_GOOD[+i]?'<span class="tag n">ок</span>':'<span class="tag c">исправить</span>'},
+ launchSum(){const all=allLaunchItems();const done=all.filter(x=>isDone(x[0])).length;const crit=all.filter(x=>x[2]==='c');const open=crit.filter(x=>!isDone(x[0]));
+  const p=Math.round(done/all.length*100);
+  return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px"><b style="font-family:Unbounded,sans-serif;font-size:22px">${p}%</b><span class="muted small">${done} из ${all.length} пунктов · критичных закрыто ${crit.length-open.length} из ${crit.length}</span></div>
+  <div class="progress"><i style="width:${p}%"></i></div>
+  <div class="verdict ${open.length?'stop':'go'}" style="margin-top:14px">${open.length?`Продажи открывать рано: не закрыто ${open.length} критичных пунктов.<ul>${open.slice(0,4).map(x=>`<li>${esc(x[1])}</li>`).join('')}${open.length>4?`<li>и ещё ${open.length-4}</li>`:''}</ul>`:'Все критичные пункты закрыты — можно открывать продажи.'}</div>`},
+ blockP(b){const it=LAUNCH[+b][2];return `${it.filter(x=>isDone(x[0])).length} / ${it.length}`},
+ afterP(){return `${AFTER.filter(x=>S.after.it[x[0]]).length} / ${AFTER.length}`},
+ wk(a){const [k,w]=a.split('|');return fmt(calcWeek(k,+w),k==='conv'?1:0)},
+ mFact(a){const [k,kind]=a.split('|');return fmt(monthFact(k,kind),k==='conv'?1:0)},
+ mPct(a){const [k,kind]=a.split('|');const f=monthFact(k,kind),g=num(S.met.goal[k]);if(f==null||!g)return '—';const p=f/g*100;const col=p>=100?'var(--green)':p>=70?'var(--amber)':'var(--red)';return `<span style="color:${col}">${pct(p)}</span>`},
+ er(i){const r=S.met.content[+i];if(!r)return '—';const reach=num(r.reach);const e=(num(r.likes)||0)+(num(r.saves)||0)+(num(r.comm)||0);return reach?pct(e/reach*100,1):'—'},
+ contentSum(){const rows=S.met.content.filter(r=>num(r.reach)!=null);if(rows.length<2)return '';
+  const best=rows.reduce((a,b)=>num(b.reach)>num(a.reach)?b:a);const bestSub=rows.reduce((a,b)=>(num(b.subs)||0)>(num(a.subs)||0)?b:a);
+  const byType={};rows.forEach(r=>{const t=r.type||'Без типа';(byType[t]=byType[t]||[]).push(num(r.reach))});
+  const tb=Object.entries(byType).map(([t,v])=>[t,v.reduce((a,b)=>a+b,0)/v.length]).sort((a,b)=>b[1]-a[1]);
+  return `<div class="callout ok"><b>Лучший охват:</b> ${esc(best.topic||'без темы')} (${fmt(num(best.reach))}). <b>Больше всего подписок:</b> ${esc(bestSub.topic||'без темы')}${num(bestSub.subs)!=null?` (+${fmt(num(bestSub.subs))})`:''}. <b>Средний охват по форматам:</b> ${tb.map(([t,v])=>`${esc(t)} — ${fmt(v)}`).join(', ')}.</div>`},
+ funnel(){const {rows,worst}=funnelData();if(rows[0].n==null)return `<p class="empty">Впиши охват и количество людей на каждом этапе — построю воронку.</p>`;
+  return rows.map(r=>`<div class="fn${worst&&worst.i===r.i?' drop':''}"><span>${esc(r.t)}</span><div class="bar"><i style="width:${r.n?Math.max(1,Math.log10(r.n+1)/Math.log10(rows[0].n+1)*100):0}%"></i></div><span class="v">${fmt(r.n)}</span></div>`).join('')+
+  (worst?`<div class="callout">Самая большая потеря: «${esc(FUNNEL[worst.i-1])}» → «${esc(worst.t)}», доходит только ${pct(worst.conv,1)}. Разбери причину в «Пути клиента» → «Точки потери».</div>`:'')},
+ fnConv(i){const {rows}=funnelData();const r=rows[+i];if(!r||r.conv==null)return '—';const g=r.goal;const col=g==null?'inherit':r.conv>=g?'var(--green)':'var(--red)';return `<span style="color:${col}">${pct(r.conv,1)}</span>`},
+ fnTop(i){const {rows}=funnelData();return pct(rows[+i]?.fromTop,2)},
+ homeCols(){return VIEWS.slice(1).map(v=>{const p=Math.round(prog(v.id)*100);return `<button class="col" data-go="${v.id}" aria-label="${esc(v.t)}: ${p}%"><div class="shaft"><div class="fill" style="height:${p}%"></div><span class="pct">${p}%</span></div><span class="cap">${v.n}. ${esc(v.t)}</span></button>`}).join('')},
+ homeKeys(){const pk=prioritySeg();const pn=filled(S.portrait.name)?S.portrait.name:(pk?segName(pk):'');const {worst}=funnelData();
+  const row=(l,v,big)=>`<div><span>${l}</span><p class="${big?'big':''}">${filled(v)?esc(v):'<span class="empty">пока пусто</span>'}</p></div>`;
+  return row('Оффер одной фразой',offerText(),true)+row('Приоритетный клиент',pn)+row('Главная дыра рынка',S.gap.q[5])+row('Конкурентное преимущество',S.mx.concl.adv)+
+  row('Узкое место воронки',worst?`${worst.t} — ${pct(worst.conv,1)}`:'')},
+ homeLaunch(){const all=allLaunchItems();const crit=all.filter(x=>x[2]==='c');const open=crit.filter(x=>!isDone(x[0])).length;const p=Math.round(all.filter(x=>isDone(x[0])).length/all.length*100);
+  const d=filled(S.launch.date)?new Date(S.launch.date+'T12:00:00'):null;const days=d?Math.round((d-today0())/864e5):null;
+  return `<div class="progress" style="margin:6px 0 10px"><i style="width:${p}%"></i></div><p><b>${p}%</b> готовности · ${open?`<span style="color:var(--red)">${open} критичных открыто</span>`:'<span style="color:var(--green)">критичное закрыто</span>'}</p>
+  <p class="small muted" style="margin-top:4px">${d?(days>0?`До открытия продаж ${days} дн.`:days===0?'Открытие продаж сегодня':`Продажи открыты ${-days} дн. назад`):'Дата открытия не задана'}</p>`},
+ homeNext(){const nx=VIEWS.slice(1).find(v=>prog(v.id)<.8);if(!nx)return `<p>Все инструменты заполнены. Обновляй метрики каждый понедельник — 15 минут.</p>`;
+  return `<div class="next"><p>Следующий шаг — <b>${nx.n}. ${esc(nx.t)}</b> (${Math.round(prog(nx.id)*100)}%)</p><button class="btn primary" data-go="${nx.id}">Открыть</button></div>`}
+};
+
+/* ============ VIEWS ============ */
+function head(t,sub,right=''){return `<div class="view-head"><div><h1>${t}</h1>${sub?`<p class="muted">${sub}</p>`:''}</div>${right}</div>`}
+
+const R={};
+R.home=()=>head(filled(S.project)?esc(S.project):'Система запуска продукта','Семь инструментов в одной системе. Заполняй по порядку: исследование → позиционирование → запуск → метрики. Данные из одного шага подтягиваются в следующие.')+
+ `<div class="hero"><section class="panel"><div class="panel-head"><h2>Готовность по шагам</h2></div><div class="cols" data-c="homeCols"></div><div class="plinth"></div><div class="plinth-l"><span>Исследование</span><span>Позиционирование</span><span>Запуск и рост</span></div></section>
+ <section class="panel"><div class="panel-head"><h2>Главное о продукте</h2></div><div class="kv" data-c="homeKeys"></div></section></div>
+ <div class="hero"><section class="panel"><h2>Запуск</h2>${calcDiv('homeLaunch')}<button class="btn sm" data-go="launch" style="margin-top:10px">К чек-листу</button></section>
+ <section class="panel">${calcDiv('homeNext')}</section></div>`;
+
+R.interview=()=>{
+ const L=S.interviews;const i=Math.min(UI.iv,Math.max(0,L.length-1));UI.iv=i;
+ let h=head('1. Интервью с клиентами','Проведи 5–7 интервью по 30 минут. Запись — с разрешения. Пиши дословно: слова клиента пойдут в контент, оффер и упаковку.',`<span class="tag ${ivCount()>=5?'n':'i'}">${ivCount()} из 5 проведено</span>`);
+ h+=`<div class="chips" style="margin-bottom:14px">${L.map((iv,k)=>`<button class="chip${k===i?' on':''}" data-iv="${k}">${calc('ivTitle',k)}</button>`).join('')}<button class="chip add" data-act="addIv">+ Новое интервью</button></div>`;
+ if(!L.length){h+=`<section class="panel"><p style="margin-bottom:12px">Интервью пока нет. Создай первое — анкета откроется здесь, а ответы сами соберутся в сводную таблицу.</p><button class="btn primary" data-act="addIv">Начать первое интервью</button></section>`}
+ else{const b=`interviews.${i}`;
+  h+=`<section class="panel"><div class="grid2">${field('Имя / никнейм клиента',inp(b+'.name','Как зовут'))}${field('Ниша / бизнес',inp(b+'.niche','Чем занимается'))}${field('Дата',`<input type="date" data-p="${b}.date" value="${esc(get(b+'.date'))}">`)}</div></section>`;
+  let k=0;IV_BLOCKS.forEach(bl=>{h+=`<section class="panel stripe" style="--c:${bl.c}"><div class="blockhead"><span class="dot" style="--c:${bl.c}"></span><h2>${bl.t}</h2><span class="muted small">${bl.time}</span></div>`;
+   bl.q.forEach(q=>{h+=`<div class="q" style="--c:${bl.c}"><span class="qn">${k+1}</span><div><p class="qt">${esc(q[0])}</p><p class="qh">${esc(q[1])}</p><div class="qa">${ta(`${b}.a.${k}`,'Ответ клиента дословно')}${ta(`${b}.k.${k}`,'Ключевая фраза')}</div></div></div>`;k++});h+='</section>'});
+  h+=`<section class="panel"><div class="panel-head"><div><h2>Сводка после интервью</h2><p class="muted small">Заполни сразу после разговора — отсюда данные уходят в общую таблицу, «Слова клиента» и подсказки для оффера.</p></div></div>
+   ${IV_SUM.map(([k,l])=>field(l,ta(`${b}.s.${k}`))).join('')}
+   ${field('Подходит под сегмент',sel(`${b}.s.segment`,SEG_KEYS.map(s=>[s,segName(s)]),'Выбери сегмент'))}
+   <button class="btn danger sm" data-act="delIv" data-i="${i}">Удалить это интервью</button></section>`}
+ h+=`<section class="panel"><div class="panel-head"><div><h2>Сводная таблица и паттерны</h2><p class="muted small">Собирается автоматически. Ищи повторяющиеся слова и боли — это золото для упаковки.</p></div></div>${calcDiv('ivTable')}<div style="margin:16px 0">${calcDiv('ivWords')}</div>
+  <h3 style="margin:18px 0 10px">Что повторяется у большинства клиентов</h3>${IV_PAT.map(([k,l])=>field(l,ta(`ivPat.${k}`))).join('')}</section>`;
+ return h};
+
+R.segments=()=>{
+ let h=head('2. Сегментация аудитории','Опиши минимум 2 сегмента. Выбери один приоритетный и сделай для него портрет.');
+ h+=`<section class="panel"><div class="panel-head"><h2>Сегменты</h2><p class="small">${calc('prioSeg')}</p></div><div class="wrap"><table class="t"><thead><tr><th>Параметр</th>${SEG_KEYS.map(k=>`<th class="w200">Сегмент ${SEG_L[k]}</th>`).join('')}</tr></thead><tbody>`;
+ SEG_GROUPS.forEach(([g,rows])=>{h+=`<tr class="grp"><td colspan="4">${g}</td></tr>`;rows.forEach(([key,l])=>{h+=`<tr><td class="lbl">${l}</td>${SEG_KEYS.map(k=>`<td class="w200">${key==='prio'?sel(`seg.${k}.prio`,[['1','1 — главный'],['2','2'],['3','3']]):key==='pay'?nin(`seg.${k}.pay`,'₽','w120'):ta(`seg.${k}.${key}`)}</td>`).join('')}</tr>`})});
+ h+=`</tbody></table></div></section>`;
+ const pk=prioritySeg();const ps=pk?S.seg[pk]:{};
+ const hints={who:ps.who,now:ps.pain,night:ps.night,tried:[ps.tried,ps.whyfail].filter(filled).join(' — '),want:ps.want,ideal:ps.ideal,objection:ps.objection};
+ h+=`<section class="panel"><div class="panel-head"><div><h2>Портрет приоритетного клиента</h2><p class="muted small">Дай ему имя — так проще писать контент. Пиши, как будто рассказываешь другу.${pk?' Подсказки взяты из приоритетного сегмента — нажми, чтобы вставить.':''}</p></div></div>
+  ${PORTRAIT.map(([k,l])=>field(l,(filled(hints[k])&&!filled(S.portrait[k])?`<button class="hint" data-fill="portrait.${k}" data-v="${esc(hints[k])}"><i>из сегмента</i>${esc(hints[k])}</button>`:'')+ta(`portrait.${k}`))).join('')}</section>`;
+ h+=`<section class="panel"><div class="panel-head"><h2>Контентная карта по сегментам</h2></div><div class="wrap"><table class="t"><thead><tr><th>Сегмент</th>${CMAP.map(c=>`<th class="w200">${c[1]}</th>`).join('')}</tr></thead><tbody>${SEG_KEYS.map(k=>`<tr><td class="lbl"><b>${esc(segName(k))}</b></td>${CMAP.map(([c])=>`<td class="w200">${ta(`cmap.${k}.${c}`)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
+ return h};
+
+R.cjm=()=>{
+ let h=head('3. Путь клиента (CJM)','Пройди каждый этап и найди, где именно теряются клиенты. Тексты этапов можно редактировать под свой продукт.');
+ h+=`<section class="panel"><div class="panel-head"><h2>Карта пути</h2></div><div class="wrap"><table class="t"><thead><tr><th>#</th>${CJM_COLS.map(c=>`<th>${c[1]}</th>`).join('')}<th>Конверсия, %</th><th>Проблема на этапе</th></tr></thead><tbody>`;
+ CJM_DEF.forEach((d,i)=>{if(S.cjm.st[i]==null)S.cjm.st[i]={};CJM_COLS.forEach(([k],j)=>{if(S.cjm.st[i][k]==null)S.cjm.st[i][k]=d[j]});
+  h+=`<tr data-cjm="${i}"><td class="calc">${i+1}</td>${CJM_COLS.map(([k,,w])=>`<td class="${w}">${ta(`cjm.st.${i}.${k}`)}</td>`).join('')}<td>${nin(`cjm.st.${i}.conv`,'%')}</td><td class="w200">${ta(`cjm.st.${i}.problem`)}</td></tr>`});
+ h+=`</tbody></table></div>${calc('cjmRows')}${calcDiv('cjmWorst')}</section>`;
+ h+=`<section class="panel"><div class="panel-head"><div><h2>Точки потери</h2><p class="muted small">Где теряются деньги. Приоритет 5 — чинить первым.</p></div></div><div class="wrap"><table class="t"><thead><tr><th>Симптом</th><th>Вероятная причина</th><th>Что исправить</th><th>Приоритет</th></tr></thead><tbody>${LOSSES.map((t,i)=>`<tr><td class="lbl">${esc(t)}</td><td class="w200">${ta(`cjm.loss.${i}.cause`)}</td><td class="w200">${ta(`cjm.loss.${i}.fix`)}</td><td>${sel(`cjm.loss.${i}.p`,[['5','5'],['4','4'],['3','3'],['2','2'],['1','1']])}</td></tr>`).join('')}</tbody></table></div>${calcDiv('lossTop')}</section>`;
+ h+=`<section class="panel"><div class="panel-head"><div><h2>Слова клиента</h2><p class="muted small">Дословно. Сильные цитаты из интервью подтягиваются сюда сами.</p></div><button class="btn sm" data-act="addWord">+ Строка</button></div><div class="wrap"><table class="t"><thead><tr><th>Этап</th><th>Цитата (дословно)</th><th>Где сказал</th><th>Как использовать в упаковке</th></tr></thead><tbody>
+  ${WORD_STAGES.map((s,i)=>`<tr><td class="lbl">${s}</td><td class="w240">${ta(`cjm.words.${i}.q`)}</td><td class="w120">${ta(`cjm.words.${i}.where`)}</td><td class="w200">${ta(`cjm.words.${i}.use`)}</td></tr>`).join('')}
+  ${S.cjm.extra.map((r,i)=>`<tr><td class="w160">${inp(`cjm.extra.${i}.stage`,'Этап')}</td><td class="w240">${ta(`cjm.extra.${i}.q`)}</td><td class="w120">${ta(`cjm.extra.${i}.where`)}</td><td class="w200">${ta(`cjm.extra.${i}.use`)}</td><td class="x"><button class="iconbtn" data-act="delWord" data-i="${i}" aria-label="Удалить">✕</button></td></tr>`).join('')}
+  ${C.ivQuotes()}</tbody></table></div></section>`;
+ return h};
+
+R.matrix=()=>{
+ const P=participants();
+ let h=head('4. Конкуренты и матрица позиционирования','Оцени себя и 5 прямых конкурентов от 1 до 10. Карта строится сама — выбери две оси.');
+ h+=`<section class="panel"><div class="panel-head"><h2>Оценка по параметрам</h2><span class="muted small">1 — слабо, 10 — отлично</span></div><div class="wrap"><table class="t"><thead><tr><th>Параметр</th>${P.map(p=>`<th>${p.you?'<b style="color:var(--accent)">Ты</b>':inp(`mx.names.${p.c}`,`Конкурент ${p.c+1}`,'w120')}</th>`).join('')}</tr></thead><tbody>
+  ${MX_PARAMS.map((p,i)=>`<tr><td class="lbl">${p[0]}</td>${P.map(pp=>`<td>${nin(`mx.s.${i}.${pp.c}`,'1–10')}</td>`).join('')}</tr>`).join('')}
+  <tr><td class="lbl"><b>Средний балл</b></td>${P.map(p=>`<td class="calc">${calc('mxTotal',p.c)}</td>`).join('')}</tr></tbody></table></div>${calcDiv('mxLead')}</section>`;
+ const opts=MX_PARAMS.map((p,i)=>[String(i),p[0]]);
+ h+=`<section class="panel"><div class="panel-head"><h2>Карта позиционирования</h2></div><div class="plotwrap"><div>${calcDiv('plot')}</div><div>
+  ${field('Ось X (горизонтальная)',sel('mx.ax',opts,'Выбери параметр'))}${field('Ось Y (вертикальная)',sel('mx.ay',opts,'Выбери параметр'))}${calcDiv('mapNote')}</div></div>
+  <div class="wrap" style="margin-top:16px"><table class="t"><thead><tr><th>Участник</th><th>Квадрант</th><th>Вывод о позиции</th></tr></thead><tbody>${P.map(p=>`<tr><td class="lbl">${p.you?'<b style="color:var(--accent)">Ты</b>':calc('mxName',p.c)}</td><td class="lbl small">${calc('quad',p.c)}</td><td class="w240">${ta(`mx.pc.${p.c}`)}</td></tr>`).join('')}</tbody></table></div></section>`;
+ h+=`<section class="panel"><div class="panel-head"><h2>Выводы и стратегия</h2></div>${MX_CONCL.map(([k,l])=>field(l,ta(`mx.concl.${k}`))).join('')}</section>`;
+ return h};
+C.mxName=c=>esc(filled(S.mx.names[+c])?S.mx.names[+c]:`Конкурент ${+c+1}`);
+
+R.gap=()=>{
+ let h=head('5. GAP-анализ и оффер','Найди место на рынке, где тебя ждут, и собери позиционирование в одну фразу. Заполняй после матрицы конкурентов.');
+ h+=`<section class="panel"><div class="panel-head"><h2>Шаг 1. Матрица характеристик рынка</h2></div><div class="wrap"><table class="t"><thead><tr><th>Характеристика</th><th>Все конкуренты дают</th><th>Никто не даёт</th><th>Ты можешь дать</th></tr></thead><tbody>${GAP_CHARS.map((c,i)=>`<tr><td class="lbl">${c}</td>${['all','none','you'].map(k=>`<td class="w200">${ta(`gap.m.${i}.${k}`)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
+ const pat=S.ivPat;
+ const hq={0:pat.tried,3:pat.result};
+ h+=`<section class="panel"><div class="panel-head"><h2>Шаг 2. Дыра рынка</h2></div>${GAP_Q.map((q,i)=>field(i===5?`<b style="color:var(--ink)">${q}</b>`:q,(filled(hq[i])&&!filled(S.gap.q[i])?`<button class="hint" data-fill="gap.q.${i}" data-v="${esc(hq[i])}"><i>из интервью</i>${esc(hq[i])}</button>`:'')+ta(`gap.q.${i}`))).join('')}</section>`;
+ const pk=prioritySeg();const P=S.portrait;
+ const hf={who:[P.who,pk?S.seg[pk].who:''],result:[pat.result,P.want],how:[S.mx.concl.adv],obj:[pat.objection,P.objection],time:[]};
+ h+=`<section class="panel"><div class="panel-head"><div><h2>Шаг 3. Формула позиционирования</h2><p class="muted small">Подсказки собраны из интервью, портрета и выводов по конкурентам — нажми, чтобы вставить.</p></div></div>
+  ${FORMULA.map(([k,l,d])=>{const hs=[...new Set(hf[k].filter(filled))];return field(`${l} <span class="muted">— ${d}</span>`,(!filled(S.gap.f[k])?hs.map(v=>`<button class="hint" data-fill="gap.f.${k}" data-v="${esc(v)}"><i>подсказка</i>${esc(v)}</button>`).join(''):'')+ta(`gap.f.${k}`))}).join('')}
+  <div style="background:var(--accent-soft);border-radius:12px;padding:16px;margin-top:6px"><p class="small muted" style="margin-bottom:6px">Собранная формула</p><p style="font-family:Unbounded,sans-serif;font-size:16px;line-height:1.45;font-weight:500">${calc('formula')}</p><button class="btn sm" data-act="useFormula" style="margin-top:12px">Сделать итоговым оффером</button></div>
+  <div style="margin-top:16px">${field('<b style="color:var(--ink)">Итоговый оффер одной фразой</b>',ta('gap.offer','Отшлифуй формулу до живой фразы'))}</div></section>`;
+ h+=`<section class="panel"><div class="panel-head"><h2>Шаг 4. Проверка позиционирования</h2></div><div class="wrap"><table class="t"><thead><tr><th>Вопрос</th><th>Да / нет</th><th></th><th>Если не так — что исправить</th></tr></thead><tbody>${GAP_CHECKS.map((q,i)=>`<tr><td class="lbl">${q}</td><td style="min-width:90px">${sel(`gap.ck.${i}.v`,[['yes','Да'],['no','Нет']])}</td><td class="calc">${calc('ckFlag',i)}</td><td class="w200">${ta(`gap.ck.${i}.fix`)}</td></tr>`).join('')}</tbody></table></div></section>`;
+ return h};
+
+function liHtml(id,text,imp,dl,store){
+ const done=store==='launch'?isDone(id):!!S.after.it[id];const auto=store==='launch'&&autoDone(id)!=null&&S.launch.it[id]==null;
+ const off=dayOffset(dl);const d=dateFor(off);const late=d&&!done&&d<today0();
+ return `<div class="li${done?' done':''}"><button class="cb${done?' on':''}" data-toggle="${store}|${id}" aria-pressed="${done}" aria-label="${esc(text)}">${done?CHECK:''}</button><div><p class="lt">${esc(text)}</p>
+  <div class="meta">${imp?`<span class="tag ${IMP[imp][0]}">${IMP[imp][1]}</span>`:''}<span class="${late?'late':''}">${esc(dl)}${d?` · ${fmtD(d)}`:''}${late?' · просрочено':''}</span>${auto?`<span class="tag auto">${done?'выполнено по данным':'проверяется по данным'}</span>`:''}</div>
+  ${ta(`${store==='launch'?'launch':'after'}.c.${id}`,'Комментарий / кто делает')}</div></div>`}
+
+R.launch=()=>{
+ let h=head('6. Чек-лист запуска','Пройди перед каждым запуском. Правило: все критичные пункты закрыты — можно открывать продажи.');
+ h+=`<section class="panel"><div class="grid2" style="align-items:end">${field('Дата открытия продаж',`<input type="date" data-p="launch.date" value="${esc(S.launch.date)}" data-rerender="1">`)}<p class="small muted" style="margin-bottom:14px">Когда дата задана, у каждого пункта появится календарный дедлайн, а просроченные подсветятся.</p></div>${calcDiv('launchSum')}</section>`;
+ LAUNCH.forEach((b,bi)=>{h+=`<section class="panel"><div class="panel-head"><div><h2>${bi+1}. ${b[0]}</h2>${b[1]?`<p class="muted small">${b[1]}</p>`:''}</div><span class="muted small">${calc('blockP',bi)}</span></div>${b[2].map(x=>liHtml(x[0],x[1],x[2],x[3],'launch')).join('')}</section>`});
+ h+=`<section class="panel"><div class="panel-head"><div><h2>После запуска — первые 7 дней</h2></div><span class="muted small">${calc('afterP')}</span></div>${AFTER.map(x=>liHtml(x[0],x[1],null,x[2],'after')).join('')}</section>`;
+ return h};
+
+R.metrics=()=>{
+ let h=head('7. Метрики: план и факт','Заполняй каждый понедельник — 15 минут. Цель — видеть тренд, а не просто цифры. Серые строки считаются сами.');
+ h+=`<section class="panel"><div class="panel-head"><h2>Еженедельный дашборд</h2></div><div class="wrap"><table class="t"><thead><tr><th>Метрика</th><th>Неделя 1</th><th>Неделя 2</th><th>Неделя 3</th><th>Неделя 4</th><th>Факт за месяц</th><th>Цель</th><th>Выполнено</th></tr></thead><tbody>`;
+ METRICS.forEach(([g,rows])=>{h+=`<tr class="grp"><td colspan="8">${g}</td></tr>`;rows.forEach(([k,l,kind])=>{
+  h+=`<tr><td class="lbl">${l}${kind!=='calc'&&kind!=='sum'?`<br><span class="small muted">${kind==='last'?'факт = последняя неделя':kind==='avg'?'факт = среднее':'факт = максимум'}</span>`:''}</td>${[0,1,2,3].map(w=>kind==='calc'?`<td class="calc muted">${calc('wk',k+'|'+w)}</td>`:`<td>${nin(`met.w.${k}.${w}`)}</td>`).join('')}
+  <td class="calc">${calc('mFact',k+'|'+kind)}</td><td>${nin(`met.goal.${k}`,'цель')}</td><td class="calc">${calc('mPct',k+'|'+kind)}</td></tr>`})});
+ h+=`</tbody></table></div></section>`;
+ h+=`<section class="panel"><div class="panel-head"><div><h2>Анализ контента</h2><p class="muted small">Что работает, что нет. Вовлечённость = (лайки + сохранения + комментарии) / охват.</p></div><button class="btn sm" data-act="addContent">+ Публикация</button></div>`;
+ if(!S.met.content.length)h+=`<p class="empty">Добавь первую публикацию — вовлечённость посчитается автоматически.</p>`;
+ else h+=`<div class="wrap"><table class="t"><thead><tr><th>Дата</th><th>Тип</th><th>Тема / заголовок</th><th>Охват</th><th>Лайки</th><th>Сохр.</th><th>Комм.</th><th>Подписки</th><th>Вовл.</th><th>Вывод / инсайт</th><th></th></tr></thead><tbody>${S.met.content.map((r,i)=>`<tr><td><input type="date" data-p="met.content.${i}.date" value="${esc(r.date)}"></td><td style="min-width:110px">${sel(`met.content.${i}.type`,CONTENT_TYPES.map(t=>[t,t]))}</td><td class="w200">${ta(`met.content.${i}.topic`)}</td>${['reach','likes','saves','comm','subs'].map(k=>`<td>${nin(`met.content.${i}.${k}`)}</td>`).join('')}<td class="calc">${calc('er',i)}</td><td class="w200">${ta(`met.content.${i}.insight`)}</td><td class="x"><button class="iconbtn" data-act="delContent" data-i="${i}" aria-label="Удалить">✕</button></td></tr>`).join('')}</tbody></table></div>`;
+ h+=`${calcDiv('contentSum')}</section>`;
+ h+=`<section class="panel"><div class="panel-head"><div><h2>Воронка продаж</h2><p class="muted small">Впиши количество людей на каждом этапе и целевую конверсию. Красным — самое слабое звено: с целями — дальше всего от цели, без целей — самая низкая конверсия после лид-магнита.</p></div></div>
+  <div class="wrap"><table class="t"><thead><tr><th>Этап</th><th>Людей</th><th>Конв. от пред.</th><th>От охвата</th><th>Цель, %</th><th>Что улучшить</th></tr></thead><tbody>${FUNNEL.map((t,i)=>`<tr><td class="lbl">${t}</td><td>${nin(`met.fn.${i}.n`,'','w120')}</td><td class="calc">${calc('fnConv',i)}</td><td class="calc muted">${calc('fnTop',i)}</td><td>${i?nin(`met.fn.${i}.goal`,'%'):'<span class="muted small">100%</span>'}</td><td class="w200">${ta(`met.fn.${i}.fix`)}</td></tr>`).join('')}</tbody></table></div>
+  <div style="margin-top:18px">${calcDiv('funnel')}</div></section>`;
+ return h};
+
+/* ============ RENDER ============ */
+function renderNav(){let h='',ph=undefined;VIEWS.forEach(v=>{if(v.ph!==ph&&v.ph){h+=`<div class="phase">${v.ph}</div>`}ph=v.ph;
+ h+=`<button class="nav-i${UI.view===v.id?' on':''}" data-go="${v.id}">${v.n?`<span class="n">${v.n}</span>`:'<span class="n">◎</span>'}<span class="t">${v.t}</span>${v.n?`<span class="p">${calc('navp',v.id)}</span>`:''}</button>`});
+ document.getElementById('nav').innerHTML=h}
+function refresh(){document.querySelectorAll('[data-c]').forEach(el=>{const f=C[el.dataset.c];if(f){const out=f(el.dataset.a);if(el.innerHTML!==out)el.innerHTML=out}})}
+function autosize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px'}
+function render(keepScroll){const y=window.scrollY;document.getElementById('main').innerHTML=R[UI.view]()+footer();renderNav();refresh();
+ document.querySelectorAll('textarea').forEach(autosize);document.querySelector('.top input').value=S.project||'';
+ if(keepScroll)window.scrollTo(0,y);else window.scrollTo(0,0);
+ const on=document.querySelector('.nav-i.on');if(on&&window.innerWidth<=900)on.scrollIntoView({inline:'center',block:'nearest'})}
+function footer(){return `<div class="foot"><span>Данные хранятся в этом браузере. Раз в неделю сохраняй резервную копию.</span></div>`}
+
+/* ============ EVENTS ============ */
+document.addEventListener('input',e=>{const el=e.target;if(!el.dataset||!el.dataset.p)return;set(el.dataset.p,el.value);if(el.tagName==='TEXTAREA')autosize(el);refresh();
+ if(el.dataset.p==='project'){if(UI.view==='home'){const h=document.querySelector('.view-head h1');if(h)h.textContent=S.project||'Система запуска продукта'}}});
+document.addEventListener('change',e=>{const el=e.target;if(!el.dataset||!el.dataset.p)return;set(el.dataset.p,el.value);
+ const p=el.dataset.p;if(el.dataset.rerender||p.startsWith('seg.')&&p.endsWith('.prio')||p==='mx.ax'||p==='mx.ay')render(true);else refresh()});
+document.addEventListener('click',e=>{
+ const go=e.target.closest('[data-go]');if(go){UI.view=go.dataset.go;try{localStorage.setItem(KEY+':view',UI.view)}catch(_){ }render();return}
+ const ivb=e.target.closest('[data-iv]');if(ivb){UI.iv=+ivb.dataset.iv;render(true);return}
+ const fill=e.target.closest('[data-fill]');if(fill){set(fill.dataset.fill,fill.dataset.v);render(true);return}
+ const tg=e.target.closest('[data-toggle]');if(tg){const [store,id]=tg.dataset.toggle.split('|');
+  if(store==='launch'){S.launch.it[id]=!isDone(id)}else{S.after.it[id]=!S.after.it[id]}save();render(true);return}
+ const a=e.target.closest('[data-act]');if(!a)return;const act=a.dataset.act,i=+a.dataset.i;
+ if(act==='addIv'){S.interviews.push({name:'',niche:'',date:new Date().toISOString().slice(0,10),a:{},k:{},s:{}});UI.iv=S.interviews.length-1;save();render(true)}
+ if(act==='delIv'){if(confirm('Удалить это интервью? Действие нельзя отменить.')){S.interviews.splice(i,1);UI.iv=Math.max(0,i-1);save();render(true)}}
+ if(act==='addWord'){S.cjm.extra.push({});save();render(true)}
+ if(act==='delWord'){S.cjm.extra.splice(i,1);save();render(true)}
+ if(act==='addContent'){S.met.content.push({date:new Date().toISOString().slice(0,10),type:'Reels'});save();render(true)}
+ if(act==='delContent'){S.met.content.splice(i,1);save();render(true)}
+ if(act==='useFormula'){S.gap.offer=formulaText();save();render(true);toast('Формула перенесена в итоговый оффер')}
+ if(act==='exportJson')exportJson();
+ if(act==='importJson')document.getElementById('fileIn').click();
+ if(act==='reset'){if(confirm('Стереть все данные во всех инструментах? Сначала сохрани резервную копию.')){S=blank();save();UI.view='home';render()}}
+});
+
+/* menu */
+document.getElementById('btnMenu').addEventListener('click',()=>{
+ const m=document.getElementById('menuPop');if(m){m.remove();return}
+ const d=document.createElement('div');d.id='menuPop';d.className='panel';
+ d.style.cssText='position:fixed;right:14px;top:calc(env(safe-area-inset-top,0px) + 60px);z-index:40;width:260px;padding:10px;box-shadow:0 12px 30px rgba(0,0,0,.18)';
+ d.innerHTML=`${true?'<button class="btn ghost" style="width:100%;text-align:left;border:0" data-act="xlsx2">Скачать всё в Excel</button><button class="btn ghost" style="width:100%;text-align:left;border:0" data-act="exportJson">Скачать резервную копию</button>':''}<button class="btn ghost" style="width:100%;text-align:left;border:0" data-act="importJson">Загрузить резервную копию</button><button class="btn ghost danger" style="width:100%;text-align:left;border:0" data-act="reset">Стереть все данные</button>`;
+ document.body.appendChild(d);setTimeout(()=>document.addEventListener('click',function h(ev){if(!d.contains(ev.target)||ev.target.closest('[data-act]')){d.remove();document.removeEventListener('click',h)}}),0);
+ d.querySelector('[data-act="xlsx2"]')?.addEventListener('click',exportXlsx);
+});
+document.getElementById('fileIn').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!d||typeof d!=='object'||!('interviews' in d))throw 0;S=merge(blank(),d);save();render();toast('Резервная копия загружена')}catch(_){toast('Это не файл резервной копии системы')}e.target.value=''});
+
+/* ============ EXPORT ============ */
+let DL=null;document.getElementById('btnXlsx').addEventListener('click',exportXlsx);
+(async()=>{try{if(window.claude&&window.claude.use){DL=await window.claude.use('downloads');}}catch(_){}})();
+async function saveFile(filename,data){if(!DL){const blob=new Blob([data]);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('Файл скачан');return}try{await DL.save({filename,data});toast('Файл сохранён')}catch(err){if(err&&err.code==='declined')return;toast('Не получилось сохранить файл')}}
+function stamp(){return new Date().toISOString().slice(0,10)}
+function exportJson(){saveFile(`Система_запуска_резерв_${stamp()}.json`,JSON.stringify(S,null,1))}
+function exportXlsx(){if(!window.XLSX){toast('Библиотека Excel не загрузилась');return}
+ const v=x=>x==null?'':x;const wb=XLSX.utils.book_new();
+ const add=(name,aoa,widths)=>{const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=(widths||[]).map(w=>({wch:w}));XLSX.utils.book_append_sheet(wb,ws,name)};
+ add('Обзор',[['Система запуска продукта — '+(S.project||'')],[],['Оффер',offerText()],['Приоритетный клиент',S.portrait.name||''],['Главная дыра рынка',v(S.gap.q[5])],['Конкурентное преимущество',v(S.mx.concl.adv)],[],['Шаг','Готовность'],...VIEWS.slice(1).map(x=>[`${x.n}. ${x.t}`,Math.round(prog(x.id)*100)+'%'])],[30,80]);
+ const ivRows=[['Клиент','Ниша','Дата','Главная боль','Что пробовал','Желаемый результат','Возражение','Цитата','Сегмент']];S.interviews.forEach(iv=>ivRows.push([iv.name,iv.niche,iv.date,v(iv.s?.pain),v(iv.s?.tried),v(iv.s?.result),v(iv.s?.objection),v(iv.s?.quote),iv.s?.segment?segName(iv.s.segment):'']));
+ ivRows.push([],['Паттерны']);IV_PAT.forEach(([k,l])=>ivRows.push([l,v(S.ivPat[k])]));add('Интервью — сводка',ivRows,[24,18,12,40,40,40,30,40,16]);
+ const qs=IV_BLOCKS.flatMap(b=>b.q.map(q=>q[0]));const ans=[['Вопрос',...S.interviews.map((iv,i)=>iv.name||'Интервью '+(i+1))]];qs.forEach((q,k)=>ans.push([q,...S.interviews.map(iv=>v(iv.a?.[k]))]));add('Интервью — ответы',ans,[50,...S.interviews.map(()=>40)]);
+ const sg=[['Параметр','Сегмент А','Сегмент Б','Сегмент В']];SEG_GROUPS.forEach(([g,rows])=>{sg.push([g]);rows.forEach(([k,l])=>sg.push([l,...SEG_KEYS.map(s=>v(S.seg[s][k]))]))});
+ sg.push([],['Портрет']);PORTRAIT.forEach(([k,l])=>sg.push([l,v(S.portrait[k])]));sg.push([],['Контентная карта',...CMAP.map(c=>c[1])]);SEG_KEYS.forEach(s=>sg.push([segName(s),...CMAP.map(([c])=>v(S.cmap[s][c]))]));add('Сегменты',sg,[40,40,40,40]);
+ const cj=[['#',...CJM_COLS.map(c=>c[1]),'Конверсия %','Проблема']];CJM_DEF.forEach((d,i)=>cj.push([i+1,...CJM_COLS.map(([k])=>v(S.cjm.st[i]?.[k])),num(S.cjm.st[i]?.conv),v(S.cjm.st[i]?.problem)]));
+ cj.push([],['Точки потери','Причина','Что исправить','Приоритет']);LOSSES.forEach((t,i)=>cj.push([t,v(S.cjm.loss[i]?.cause),v(S.cjm.loss[i]?.fix),num(S.cjm.loss[i]?.p)]));
+ cj.push([],['Слова клиента','Цитата','Где','Как использовать']);WORD_STAGES.forEach((s,i)=>cj.push([s,v(S.cjm.words[i]?.q),v(S.cjm.words[i]?.where),v(S.cjm.words[i]?.use)]));S.cjm.extra.forEach(r=>cj.push([v(r.stage),v(r.q),v(r.where),v(r.use)]));
+ S.interviews.filter(iv=>filled(iv.s?.quote)).forEach(iv=>cj.push(['Из интервью',iv.s.quote,iv.name,'']));add('Путь клиента',cj,[34,30,30,24,30,12,30]);
+ const P=participants();const mx=[['Параметр',...P.map(p=>p.name)]];MX_PARAMS.forEach((p,i)=>mx.push([p[0],...P.map(pp=>num(S.mx.s[i]?.[pp.c]))]));mx.push(['Средний балл',...P.map(p=>colScore(p.c)==null?'':+colScore(p.c).toFixed(1))]);
+ mx.push([],['Ось X',MX_PARAMS[+S.mx.ax||0][0]],['Ось Y',MX_PARAMS[+S.mx.ay||0][0]],['Участник','Квадрант','Вывод']);P.forEach(p=>mx.push([p.name,C.quad(p.c),v(S.mx.pc[p.c])]));mx.push([]);MX_CONCL.forEach(([k,l])=>mx.push([l,v(S.mx.concl[k])]));add('Конкуренты',mx,[40,18,18,18,18,18,18]);
+ const gp=[['Характеристика','Все дают','Никто не даёт','Ты можешь дать']];GAP_CHARS.forEach((c,i)=>gp.push([c,v(S.gap.m[i]?.all),v(S.gap.m[i]?.none),v(S.gap.m[i]?.you)]));gp.push([]);GAP_Q.forEach((q,i)=>gp.push([q,v(S.gap.q[i])]));gp.push([]);FORMULA.forEach(([k,l])=>gp.push([l,v(S.gap.f[k])]));
+ gp.push(['Формула',formulaText()],['Итоговый оффер',v(S.gap.offer)],[],['Проверка','Да/Нет','Что исправить']);GAP_CHECKS.forEach((q,i)=>gp.push([q,S.gap.ck[i]?.v==='yes'?'Да':S.gap.ck[i]?.v==='no'?'Нет':'',v(S.gap.ck[i]?.fix)]));add('GAP и оффер',gp,[45,40,40,40]);
+ const ln=[['Пункт','Статус','Важность','Дедлайн','Дата','Комментарий']];LAUNCH.forEach(b=>{ln.push([b[0]]);b[2].forEach(x=>{const d=dateFor(dayOffset(x[3]));ln.push([x[1],isDone(x[0])?'✅':'☐',IMP[x[2]][1],x[3],d?fmtD(d):'',v(S.launch.c[x[0]])])})});
+ ln.push([],['После запуска']);AFTER.forEach(x=>{const d=dateFor(dayOffset(x[2]));ln.push([x[1],S.after.it[x[0]]?'✅':'☐','',x[2],d?fmtD(d):'',v(S.after.c[x[0]])])});add('Запуск',ln,[60,8,12,18,10,30]);
+ const mt=[['Метрика','Неделя 1','Неделя 2','Неделя 3','Неделя 4','Факт за месяц','Цель']];METRICS.forEach(([g,rows])=>{mt.push([g]);rows.forEach(([k,l,kind])=>mt.push([l,...[0,1,2,3].map(w=>kind==='calc'?calcWeek(k,w):num(S.met.w[k]?.[w])),monthFact(k,kind),num(S.met.goal[k])]))});
+ mt.push([],['Воронка','Людей','Конв. от пред. %','Цель %','Что улучшить']);const fd=funnelData();fd.rows.forEach(r=>mt.push([r.t,r.n,r.conv==null?'':+r.conv.toFixed(1),r.goal,v(S.met.fn[r.i]?.fix)]));
+ mt.push([],['Контент: дата','Тип','Тема','Охват','Лайки','Сохранения','Комментарии','Подписки','Вывод']);S.met.content.forEach(r=>mt.push([r.date,r.type,v(r.topic),num(r.reach),num(r.likes),num(r.saves),num(r.comm),num(r.subs),v(r.insight)]));
+ add('Метрики',mt,[36,12,12,12,12,14,12,12,30]);
+ const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});saveFile(`Система_запуска_${(S.project||'').replace(/[\\/:*?"<>|]/g,'').slice(0,40)||'продукт'}_${stamp()}.xlsx`,new Uint8Array(out));
+}
+
+render();
+</script>
+</body>
+</html>
